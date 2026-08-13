@@ -1,0 +1,8 @@
+﻿interface:
+  display_name: "Shopify 优化上新"
+  short_description: "实时读取集合规则并生成分站 Shopify 导入文件"
+  default_prompt: "使用 $shopify-optimize-launch 读取两个店铺的实时集合规则，优化这批上新，按店铺拆分，并生成已完整验证的 Shopify CSV。"
+
+policy:
+  allow_implicit_invocation: true
+
