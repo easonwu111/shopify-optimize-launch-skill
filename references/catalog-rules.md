@@ -30,17 +30,18 @@ These names aid classification and human review. Always obtain their current mac
 
 ## Product defaults
 
-| Type | Shopify category | Price | Compare-at | Allowed sizes |
-|---|---:|---:|---:|---|
-| T-Shirts | `aa-1-13-8` | 29.99 | 42.99 | S, M, L, XL, 2XL |
-| Tank Tops | `aa-1-13-9` | 25.99 | 36.99 | S, M, L, XL, 2XL, 3XL |
-| Sweatshirts | `aa-1-13-14` | 39.99 | 56.99 | M, L, XL, 2XL, 3XL |
-| Hoodies | `aa-1-13-13` | 41.99 | 59.99 | M, L, XL, 2XL, 3XL |
+| Type | Shopify category | Price | Allowed sizes |
+|---|---:|---:|---|
+| T-Shirts | `aa-1-13-8` | 29.99 | S, M, L, XL, 2XL |
+| Tank Tops | `aa-1-13-9` | 25.99 | S, M, L, XL, 2XL, 3XL |
+| Sweatshirts | `aa-1-13-14` | 39.99 | M, L, XL, 2XL, 3XL |
+| Hoodies | `aa-1-13-13` | 41.99 | M, L, XL, 2XL, 3XL |
 
 When a batch introduces a type not represented in the current source/history, compare against active products in the live snapshot before applying a new rule.
 
 All variants:
 
+- compare-at price: completely blank; never write `0`, `0.00`, an MSRP, or any other strikethrough price
 - inventory tracker: `shopify`
 - inventory quantity: `0`
 - inventory policy: `continue`

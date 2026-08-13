@@ -50,7 +50,8 @@ For each product:
 
 - assign exactly one destination store from its message/design;
 - optimize the English title, HTML description, SEO title, SEO description, image alt text, and useful descriptive tags;
-- set the correct Shopify category, `Type`, sizes, prices, inventory, fulfillment, shipping, tax, draft, and unpublished fields;
+- set the correct Shopify category, `Type`, sizes, regular prices, inventory, fulfillment, shipping, tax, draft, and unpublished fields;
+- clear `Variant Compare At Price` for every variant; never create a strikethrough/sale price;
 - assign exactly one semantic series;
 - map that series to the exact live collection rule instead of constructing a slug by memory.
 
@@ -81,7 +82,8 @@ Re-import each generated CSV with the artifact tool and verify all of the follow
 - product and variant counts reconcile to the source;
 - every variant SKU is nonblank and globally unique across both store files;
 - every variant has its intended image binding;
-- prices, compare-at prices, sizes, category, and type follow the catalog rules;
+- regular prices, sizes, category, and type follow the catalog rules;
+- every `Variant Compare At Price` value is completely blank; `0` and `0.00` are failures, not blank values;
 - `Variant Inventory Tracker=shopify`, quantity `0`, policy `continue`, fulfillment `manual`, shipping/taxable true;
 - each product is `draft` and `Published=FALSE`;
 - each product has exactly one readable series label and one exact live series tag;
