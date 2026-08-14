@@ -30,14 +30,20 @@ These names aid classification and human review. Always obtain their current mac
 
 ## Product defaults
 
-| Type | Shopify category | Price | Allowed sizes |
-|---|---:|---:|---|
-| T-Shirts | `aa-1-13-8` | 29.99 | S, M, L, XL, 2XL |
-| Tank Tops | `aa-1-13-9` | 25.99 | S, M, L, XL, 2XL, 3XL |
-| Sweatshirts | `aa-1-13-14` | 39.99 | M, L, XL, 2XL, 3XL |
-| Hoodies | `aa-1-13-13` | 41.99 | M, L, XL, 2XL, 3XL |
+| Type | Price | Allowed sizes |
+|---|---:|---|
+| T-Shirts | 29.99 | S, M, L, XL, 2XL |
+| Tank Tops | 25.99 | S, M, L, XL, 2XL, 3XL |
+| Sweatshirts | 39.99 | M, L, XL, 2XL, 3XL |
+| Hoodies | 41.99 | M, L, XL, 2XL, 3XL |
 
 When a batch introduces a type not represented in the current source/history, compare against active products in the live snapshot before applying a new rule.
+
+### Product Category
+
+- Take the exact `fullName` path for each product type from the live snapshot (`productCategory.productTaxonomyNode.fullName`, exposed as `categoryByType` in `live-context-summary.json`).
+- Write that full path into the CSV `Product Category` column, e.g. `服饰与配饰 > 服装 > 服装上衣 > T 恤`.
+- Never hardcode taxonomy IDs (`aa-1-13-8`) or English paths (`Apparel & Accessories > Clothing > Tops > T-Shirts`): store taxonomies can be localized, and the CSV importer silently rejects mismatched values ("invalid product category").
 
 All variants:
 
@@ -59,12 +65,18 @@ All products:
 
 ## Copy rules
 
-- Titles: natural English, front-load the design phrase, append a concise garment descriptor, avoid keyword stuffing.
-- Body HTML: describe the design, garment, fit/use case, and gifting angle without unsupported claims.
+- Titles: natural English, front-load the design phrase, append a concise garment descriptor, avoid keyword stuffing; keep the total length roughly 40-95 characters, in line with existing store titles.
+- Body HTML: describe the design, garment, fit/use case, and gifting angle without unsupported claims. Match the store's existing short format (opening sentence, then a Design/fabric/neckline-and-sleeves/washing bullet list, then a gifting sentence). Strip supplier spec sections and size-table templates.
 - SEO title: concise and distinct; target about 50–60 characters when practical.
 - SEO description: useful sales summary; target about 140–160 characters when practical.
 - Image alt: describe the visible graphic and garment type; do not stuff tags.
 - Preserve the original meaning, scripture reference, spelling, and punctuation visible in the artwork.
+
+## Image rules
+
+- Keep only images that actually belong to the product; drop generic images shared across products (verify with OCR or visual inspection when wording is ambiguous).
+- Every `Variant Image` URL must appear in the product's `Image Src` set.
+- Renumber `Image Position` 1..N after filtering; position 1 becomes the main image.
 
 ## Tag rules
 

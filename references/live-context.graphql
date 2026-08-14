@@ -33,6 +33,7 @@ query LiveStoreContext {
       tags
       status
       updatedAt
+      productCategory { productTaxonomyNode { id fullName } }
     }
   }
 }

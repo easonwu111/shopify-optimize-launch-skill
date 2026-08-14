@@ -33,6 +33,7 @@ Read both `live-context-summary.json` and the two raw JSON files. Extract:
 - every automatic collection's `ruleSet`;
 - exact tag conditions such as `series-*` and `new-in`;
 - exact product-type conditions;
+- each product type's exact `Product Category` fullName path (`categoryByType`);
 - existing product tag vocabulary, vendors, types, and naming patterns.
 
 Rules:
@@ -50,7 +51,7 @@ For each product:
 
 - assign exactly one destination store from its message/design;
 - optimize the English title, HTML description, SEO title, SEO description, image alt text, and useful descriptive tags;
-- set the correct Shopify category, `Type`, sizes, regular prices, inventory, fulfillment, shipping, tax, draft, and unpublished fields;
+- set `Product Category` to the live fullName path for the product type (never hardcode taxonomy IDs or English paths; store taxonomies can be localized), plus correct `Type`, sizes, regular prices, inventory, fulfillment, shipping, tax, draft, and unpublished fields;
 - clear `Variant Compare At Price` for every variant; never create a strikethrough/sale price;
 - assign exactly one semantic series;
 - map that series to the exact live collection rule instead of constructing a slug by memory.
@@ -89,6 +90,7 @@ Re-import each generated CSV with the artifact tool and verify all of the follow
 - each product has exactly one readable series label and one exact live series tag;
 - `new-in` is absent from the import CSV because Shopify Flow owns that tag lifecycle;
 - each product's `Type` satisfies the live type-collection rule;
+- each product's `Product Category` exactly matches the live fullName for its type;
 - titles, descriptions, SEO fields, and image alt text are nonblank and within Shopify-safe lengths;
 - no formula/error strings or replacement characters are present.
 

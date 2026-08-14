@@ -73,7 +73,7 @@ foreach ($store in $stores) {
     throw "Live Shopify query failed for $($store.domain). No final import CSV should be generated."
   }
 
-  $payload = Get-Content -LiteralPath $outputFile -Raw | ConvertFrom-Json
+  $payload = Get-Content -LiteralPath $outputFile -Raw -Encoding UTF8 | ConvertFrom-Json
   if (-not $payload.shop -or -not $payload.collections -or -not $payload.products) {
     throw "Incomplete Shopify response for $($store.domain)."
   }
@@ -102,6 +102,13 @@ foreach ($store in $stores) {
     }
   ) | Where-Object { $_ } | Sort-Object -Unique
 
+  $categoryByType = @{}
+  foreach ($node in $payload.products.nodes) {
+    if ($node.productCategory -and $node.productCategory.productTaxonomyNode -and $node.productType -and -not $categoryByType.ContainsKey($node.productType)) {
+      $categoryByType[$node.productType] = $node.productCategory.productTaxonomyNode.fullName
+    }
+  }
+
   $summaries += [pscustomobject]@{
     key = $store.key
     shop = $payload.shop
@@ -113,6 +120,7 @@ foreach ($store in $stores) {
     seriesTags = @($productTags | Where-Object { $_ -like "series-*" })
     vendors = @($payload.products.nodes.vendor | Where-Object { $_ } | Sort-Object -Unique)
     productTypes = @($payload.products.nodes.productType | Where-Object { $_ } | Sort-Object -Unique)
+    categoryByType = $categoryByType
   }
 }
 
