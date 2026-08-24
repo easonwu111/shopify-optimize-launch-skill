@@ -1,6 +1,6 @@
 ---
 name: shopify-optimize-launch
-description: End-to-end workflow for Shopify new-product launches. Use when the user says “优化上新”, “产品上新”, “整理/生成 Shopify 导入文件”, asks to split a product CSV between Regular Mess and Let Faith Lead, or needs collection-ready tags. Before generating final CSVs, read both stores' live automatic-collection rules and existing product tags, then optimize content, split by store, attach exact live rule tags, and verify the files.
+description: End-to-end workflow for Shopify new-product launches. Use when the user says “优化上新”, “产品上新”, “整理/生成 Shopify 导入文件”, asks to split a product CSV between Regular Mess and Let Faith Lead, or needs collection-ready tags. Before generating final CSVs, read both stores' live automatic-collection rules and existing product tags, then optimize content, split by store, attach exact live rule tags, and validate featured-image and color/SKC order.
 ---
 
 # Shopify Optimize Launch
@@ -18,6 +18,7 @@ The live Shopify configuration is the source of truth. Never rely only on rememb
 - Use the Spreadsheets skill and its bundled runtime for CSV reading, authoring, rendering, and verification.
 - Preserve handles, variant SKUs, option relationships, source image URLs, and variant-image bindings.
 - Group rows by `Handle`; treat the row containing `Title` as the product-level row.
+- Record each product's first-seen Color option order before transforming it; this is the default SKC thumbnail order and must not change silently.
 - Inspect representative product images when wording or store/series classification is ambiguous.
 
 ### 2. Run the live Shopify preflight
@@ -55,6 +56,7 @@ For each product:
 - clear `Variant Compare At Price` for every variant; never create a strikethrough/sale price;
 - assign exactly one semantic series;
 - map that series to the exact live collection rule instead of constructing a slug by memory.
+- apply the image rules in [catalog-rules.md](references/catalog-rules.md) after every color or image filter; renumber media only after the final image set is known.
 
 On the product-level row, include:
 
@@ -77,12 +79,26 @@ Do not leave the user with a combined file as the primary deliverable. Do not mi
 
 ### 5. Verify before delivery
 
+Run the deterministic image/SKC gate once for each final store CSV:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "<skill-dir>\scripts\validate-image-order.ps1" `
+  -CsvPath "<final-store-csv>" `
+  -SourceCsvPath "<source-csv>" `
+  -ReportPath "<task-temp-dir>\<store>-image-order-report.json"
+```
+
+The command must exit `0`. A nonzero exit blocks delivery; fix the CSV and rerun it. Keep both JSON reports with the live Shopify snapshot and include their pass/fail totals in the final verification report.
+
 Re-import each generated CSV with the artifact tool and verify all of the following:
 
 - headers match Shopify's expected import schema and order;
 - product and variant counts reconcile to the source;
 - every variant SKU is nonblank and globally unique across both store files;
-- every variant has its intended image binding;
+- every product has exactly one image at position `1`, and positions are unique and continuous `1..N`;
+- position `1` equals the first Color option's `Variant Image`, keeping collection and product-page opening images aligned;
+- every color's variants are contiguous, preserve the reviewed source Color order, and use exactly one nonblank `Variant Image` across all sizes;
+- every `Variant Image` URL appears in that product's `Image Src` set;
 - regular prices, sizes, category, and type follow the catalog rules;
 - every `Variant Compare At Price` value is completely blank; `0` and `0.00` are failures, not blank values;
 - `Variant Inventory Tracker=shopify`, quantity `0`, policy `continue`, fulfillment `manual`, shipping/taxable true;

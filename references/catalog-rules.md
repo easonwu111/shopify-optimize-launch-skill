@@ -75,8 +75,13 @@ All products:
 ## Image rules
 
 - Keep only images that actually belong to the product; drop generic images shared across products (verify with OCR or visual inspection when wording is ambiguous).
-- Every `Variant Image` URL must appear in the product's `Image Src` set.
-- Renumber `Image Position` 1..N after filtering; position 1 becomes the main image.
+- Treat `Image Src` and `Image Position` as product-wide gallery fields. The variant row containing an `Image Src` value does not bind that image to the row's color; only `Variant Image` creates the color/variant binding.
+- Preserve the reviewed first-seen Color option order from the source and keep all variants for each color in one contiguous block. The storefront SKC thumbnail order follows Shopify's Color option-value order.
+- Bind every size of one color to the same nonblank `Variant Image`. Every `Variant Image` URL must also appear in the product's `Image Src` set.
+- After filtering colors or images, remove media used only by a removed color unless the user explicitly approved keeping it as gallery content.
+- Renumber `Image Position` exactly `1..N` with no blanks, gaps, or duplicates after the final image set is known.
+- Set position `1` to the first Color option's `Variant Image`. This keeps the product featured image aligned with the current themes, which open the product page on the first available variant image.
+- Run `scripts/validate-image-order.ps1` against every final store CSV. Do not deliver a file when the validator exits nonzero.
 
 ## Tag rules
 
