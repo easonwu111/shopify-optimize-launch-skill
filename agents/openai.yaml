@@ -1,7 +1,7 @@
 interface:
   display_name: "Shopify 优化上新"
   short_description: "实时规则、首图与 SKC 顺序校验的 Shopify 上新"
-  default_prompt: "使用 $shopify-optimize-launch 读取两店实时规则，优化并拆分上新文件，清空划线价，校验首图、图片位置与 SKC 颜色顺序，然后生成可导入的 Shopify CSV。"
+  default_prompt: "使用 $shopify-optimize-launch 读取两店实时规则，优化并拆分上新文件，使用整数售价、清空划线价，校验定价、首图、图片位置与 SKC 颜色顺序，然后生成可导入的 Shopify CSV。"
 
 policy:
   allow_implicit_invocation: true

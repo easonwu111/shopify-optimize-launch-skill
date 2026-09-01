@@ -32,12 +32,19 @@ These names aid classification and human review. Always obtain their current mac
 
 | Type | Price | Allowed sizes |
 |---|---:|---|
-| T-Shirts | 29.99 | S, M, L, XL, 2XL |
-| Tank Tops | 25.99 | S, M, L, XL, 2XL, 3XL |
-| Sweatshirts | 39.99 | M, L, XL, 2XL, 3XL |
-| Hoodies | 41.99 | M, L, XL, 2XL, 3XL |
+| T-Shirts | 30.00 | S, M, L, XL, 2XL |
+| Tank Tops | 26.00 | S, M, L, XL, 2XL, 3XL |
+| Sweatshirts | 40.00 | M, L, XL, 2XL, 3XL |
+| Hoodies | 42.00 | M, L, XL, 2XL, 3XL |
 
 When a batch introduces a type not represented in the current source/history, compare against active products in the live snapshot before applying a new rule.
+
+### Integer-price policy
+
+- Both stores use whole-dollar regular prices for new imports. Write them as monetary values such as `30.00`; never reintroduce `.99` endings.
+- When converting a previously approved `.99` price, increase it by `0.01` to the next whole dollar: `25.99 → 26.00`, `29.99 → 30.00`, `39.99 → 40.00`, and `41.99 → 42.00`.
+- Do not preserve a legacy `.99` manual override by default. A batch-specific exception requires explicit user approval and must be recorded in the verification report.
+- For a new product type, use current live products and the user's pricing direction to select a whole-dollar price; do not invent a `.99` price point.
 
 ### Product Category
 
@@ -47,6 +54,7 @@ When a batch introduces a type not represented in the current source/history, co
 
 All variants:
 
+- regular price: positive whole-dollar monetary value; use `.00` in the CSV for clarity
 - compare-at price: completely blank; never write `0`, `0.00`, an MSRP, or any other strikethrough price
 - inventory tracker: `shopify`
 - inventory quantity: `0`

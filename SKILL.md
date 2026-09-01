@@ -53,6 +53,7 @@ For each product:
 - assign exactly one destination store from its message/design;
 - optimize the English title, HTML description, SEO title, SEO description, image alt text, and useful descriptive tags;
 - set `Product Category` to the live fullName path for the product type (never hardcode taxonomy IDs or English paths; store taxonomies can be localized), plus correct `Type`, sizes, regular prices, inventory, fulfillment, shipping, tax, draft, and unpublished fields;
+- use whole-dollar regular prices for both stores. Apply the default mapping in [catalog-rules.md](references/catalog-rules.md): T-Shirts `30.00`, Tank Tops `26.00`, Sweatshirts `40.00`, and Hoodies `42.00`. Never generate a `.99` ending unless the user explicitly approves a batch-specific exception;
 - clear `Variant Compare At Price` for every variant; never create a strikethrough/sale price;
 - assign exactly one semantic series;
 - map that series to the exact live collection rule instead of constructing a slug by memory.
@@ -79,7 +80,17 @@ Do not leave the user with a combined file as the primary deliverable. Do not mi
 
 ### 5. Verify before delivery
 
-Run the deterministic image/SKC gate once for each final store CSV:
+Run the deterministic pricing gate once for each final store CSV:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File "<skill-dir>\scripts\validate-pricing.ps1" `
+  -CsvPath "<final-store-csv>" `
+  -ReportPath "<task-temp-dir>\<store>-pricing-report.json"
+```
+
+The pricing gate must exit `0`. It blocks blank/non-numeric/non-positive variant prices, every non-integer regular price (including `.99`), and every nonblank compare-at value (`0` and `0.00` also fail).
+
+Then run the deterministic image/SKC gate once for each final store CSV:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File "<skill-dir>\scripts\validate-image-order.ps1" `
@@ -88,7 +99,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "<skill-dir>\scripts\validat
   -ReportPath "<task-temp-dir>\<store>-image-order-report.json"
 ```
 
-The command must exit `0`. A nonzero exit blocks delivery; fix the CSV and rerun it. Keep both JSON reports with the live Shopify snapshot and include their pass/fail totals in the final verification report.
+Both commands must exit `0`. A nonzero exit blocks delivery; fix the CSV and rerun it. Keep all pricing and image-order JSON reports with the live Shopify snapshot and include their pass/fail totals in the final verification report.
 
 Re-import each generated CSV with the artifact tool and verify all of the following:
 
@@ -99,7 +110,7 @@ Re-import each generated CSV with the artifact tool and verify all of the follow
 - position `1` equals the first Color option's `Variant Image`, keeping collection and product-page opening images aligned;
 - every color's variants are contiguous, preserve the reviewed source Color order, and use exactly one nonblank `Variant Image` across all sizes;
 - every `Variant Image` URL appears in that product's `Image Src` set;
-- regular prices, sizes, category, and type follow the catalog rules;
+- every `Variant Price` is a positive whole-dollar value and matches the catalog rule for its type; `.99` endings are failures unless the user explicitly approved and documented a batch-specific exception;
 - every `Variant Compare At Price` value is completely blank; `0` and `0.00` are failures, not blank values;
 - `Variant Inventory Tracker=shopify`, quantity `0`, policy `continue`, fulfillment `manual`, shipping/taxable true;
 - each product is `draft` and `Published=FALSE`;
