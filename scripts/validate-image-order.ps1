@@ -127,6 +127,23 @@ function Test-SequenceEqual {
   return $true
 }
 
+function Test-SequenceEqualOrdinal {
+  param(
+    [string[]]$Left,
+    [string[]]$Right
+  )
+
+  if ($Left.Count -ne $Right.Count) {
+    return $false
+  }
+  for ($index = 0; $index -lt $Left.Count; $index++) {
+    if (-not [string]::Equals($Left[$index], $Right[$index], [System.StringComparison]::Ordinal)) {
+      return $false
+    }
+  }
+  return $true
+}
+
 function New-ValidationIssue {
   param(
     [Parameter(Mandatory = $true)]
@@ -174,11 +191,17 @@ foreach ($index in 1..3) {
   $optionColumns["Option${index}Value"] = Resolve-Column -Headers $csv.Headers -Candidates @("Option${index} Value") -Label "Option${index} Value" -Optional
 }
 
+$fileIssues = New-Object 'System.Collections.Generic.List[object]'
+$sourceGalleryOrders = @{}
 $sourceColorOrders = @{}
+$sourceColorImageMaps = @{}
 $sourceHandles = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
 $sourceCsv = Import-ShopifyCsv -Path $SourceCsvPath
 $resolvedSourcePath = $sourceCsv.Path
 $sourceHandleColumn = Resolve-Column -Headers $sourceCsv.Headers -Candidates @("Handle") -Label "Handle"
+$sourceImageUrlColumn = Resolve-Column -Headers $sourceCsv.Headers -Candidates @("Image Src", "Product image URL") -Label "Image Src"
+$sourceImagePositionColumn = Resolve-Column -Headers $sourceCsv.Headers -Candidates @("Image Position", "Image position") -Label "Image Position"
+$sourceVariantImageColumn = Resolve-Column -Headers $sourceCsv.Headers -Candidates @("Variant Image", "Variant image") -Label "Variant Image"
 $sourceOptionColumns = @{}
 foreach ($index in 1..3) {
   $sourceOptionColumns["Option${index}Name"] = Resolve-Column -Headers $sourceCsv.Headers -Candidates @("Option${index} Name") -Label "Option${index} Name" -Optional
@@ -189,14 +212,81 @@ foreach ($sourceGroup in ($sourceCsv.Rows | Group-Object { Get-CellText -Row $_ 
     continue
   }
   [void]$sourceHandles.Add($sourceGroup.Name)
+  $sourceKey = $sourceGroup.Name.ToLowerInvariant()
   $sourceRows = @($sourceGroup.Group)
+  $sourceImageRows = @($sourceRows | Where-Object { Get-CellText -Row $_ -Column $sourceImageUrlColumn })
+  $sourcePositionRecords = New-Object 'System.Collections.Generic.List[object]'
+  foreach ($sourceImageRow in $sourceImageRows) {
+    $sourceUrl = Get-CellText -Row $sourceImageRow -Column $sourceImageUrlColumn
+    $sourcePositionText = Get-CellText -Row $sourceImageRow -Column $sourceImagePositionColumn
+    $sourcePosition = 0
+    if ($sourcePositionText -notmatch '^[1-9][0-9]*$' -or -not [int]::TryParse($sourcePositionText, [ref]$sourcePosition)) {
+      $fileIssues.Add((New-ValidationIssue -Code "source_invalid_image_position" -Message "Source product '$($sourceGroup.Name)' has an image with an invalid Image Position, so main-site gallery order cannot be verified." -Details @{ handle = $sourceGroup.Name; imageUrl = $sourceUrl; value = $sourcePositionText }))
+      continue
+    }
+    $sourcePositionRecords.Add([pscustomobject]@{ position = $sourcePosition; url = $sourceUrl })
+  }
+  if ($sourceImageRows.Count -eq 0) {
+    $fileIssues.Add((New-ValidationIssue -Code "source_product_has_no_images" -Message "Source product '$($sourceGroup.Name)' has no Image Src rows, so main-site gallery order cannot be verified." -Details @{ handle = $sourceGroup.Name }))
+  }
+  if ($sourcePositionRecords.Count -eq $sourceImageRows.Count -and $sourceImageRows.Count -gt 0) {
+    foreach ($duplicatePositionGroup in @($sourcePositionRecords | Group-Object position | Where-Object { $_.Count -gt 1 })) {
+      $fileIssues.Add((New-ValidationIssue -Code "source_duplicate_image_position" -Message "Source product '$($sourceGroup.Name)' has duplicate Image Position '$($duplicatePositionGroup.Name)', so main-site gallery order is ambiguous." -Details @{ handle = $sourceGroup.Name; position = [int]$duplicatePositionGroup.Name; imageUrls = @($duplicatePositionGroup.Group | ForEach-Object { $_.url }) }))
+    }
+  }
+  $sourceGalleryOrder = @($sourcePositionRecords | Sort-Object position | ForEach-Object { $_.url })
+  $sourceGalleryOrders[$sourceKey] = $sourceGalleryOrder
+  $sourceGalleryUrlSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+  foreach ($sourceGalleryUrl in $sourceGalleryOrder) {
+    [void]$sourceGalleryUrlSet.Add($sourceGalleryUrl)
+  }
+
   $sourceColorColumns = Get-ColorColumns -Rows $sourceRows -OptionColumns $sourceOptionColumns
   if ($null -ne $sourceColorColumns) {
-    $sourceColorOrders[$sourceGroup.Name.ToLowerInvariant()] = @(Get-OrderedUniqueValues -Rows $sourceRows -Column $sourceColorColumns.ValueColumn)
+    $sourceColors = @(Get-OrderedUniqueValues -Rows $sourceRows -Column $sourceColorColumns.ValueColumn)
+    $sourceColorImageMap = [ordered]@{}
+    foreach ($sourceColor in $sourceColors) {
+      $sourceColorRows = @($sourceRows | Where-Object { [string]::Equals((Get-CellText -Row $_ -Column $sourceColorColumns.ValueColumn), $sourceColor, [System.StringComparison]::OrdinalIgnoreCase) })
+      $sourceVariantImageSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+      $sourceVariantImageList = New-Object 'System.Collections.Generic.List[string]'
+      foreach ($sourceColorRow in $sourceColorRows) {
+        $sourceVariantImage = Get-CellText -Row $sourceColorRow -Column $sourceVariantImageColumn
+        if ($sourceVariantImage -and $sourceVariantImageSet.Add($sourceVariantImage)) {
+          $sourceVariantImageList.Add($sourceVariantImage)
+        }
+      }
+      $sourceVariantImages = $sourceVariantImageList.ToArray()
+      if ($sourceVariantImages.Count -ne 1) {
+        $fileIssues.Add((New-ValidationIssue -Code "source_color_variant_image_invalid" -Message "Source product '$($sourceGroup.Name)' color '$sourceColor' must have exactly one Variant Image before its main-site SKU order can be derived." -Details @{ handle = $sourceGroup.Name; color = $sourceColor; images = @($sourceVariantImages) }))
+        continue
+      }
+      $sourceColorImageMap[$sourceColor] = $sourceVariantImages[0]
+      if (-not $sourceGalleryUrlSet.Contains($sourceVariantImages[0])) {
+        $fileIssues.Add((New-ValidationIssue -Code "source_variant_image_missing_from_gallery" -Message "Source product '$($sourceGroup.Name)' color '$sourceColor' has a Variant Image that is absent from its Image Src gallery." -Details @{ handle = $sourceGroup.Name; color = $sourceColor; imageUrl = $sourceVariantImages[0] }))
+      }
+    }
+
+    $derivedSourceColorOrder = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($sourceGalleryImage in $sourceGalleryOrder) {
+      $matchingColors = @($sourceColors | Where-Object { $sourceColorImageMap.Contains($_) -and [string]::Equals([string]$sourceColorImageMap[$_], $sourceGalleryImage, [System.StringComparison]::Ordinal) })
+      if ($matchingColors.Count -gt 1) {
+        $fileIssues.Add((New-ValidationIssue -Code "source_variant_image_shared_by_colors" -Message "Source product '$($sourceGroup.Name)' assigns one Variant Image to multiple colors, so main-site SKU order is ambiguous." -Details @{ handle = $sourceGroup.Name; imageUrl = $sourceGalleryImage; colors = @($matchingColors) }))
+      }
+      foreach ($matchingColor in $matchingColors) {
+        if (-not $derivedSourceColorOrder.Contains($matchingColor)) {
+          $derivedSourceColorOrder.Add($matchingColor)
+        }
+      }
+    }
+    $missingDerivedColors = @($sourceColors | Where-Object { -not $derivedSourceColorOrder.Contains($_) })
+    if ($missingDerivedColors.Count -gt 0) {
+      $fileIssues.Add((New-ValidationIssue -Code "source_color_order_not_derivable" -Message "Source product '$($sourceGroup.Name)' has colors whose SKU order cannot be derived from Image Position and Variant Image." -Details @{ handle = $sourceGroup.Name; colors = @($missingDerivedColors) }))
+    }
+    $sourceColorOrders[$sourceKey] = $derivedSourceColorOrder.ToArray()
+    $sourceColorImageMaps[$sourceKey] = $sourceColorImageMap
   }
 }
 
-$fileIssues = New-Object 'System.Collections.Generic.List[object]'
 $closedHandles = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::OrdinalIgnoreCase)
 $lastHandle = ""
 foreach ($row in $csv.Rows) {
@@ -223,6 +313,8 @@ foreach ($group in ($csv.Rows | Group-Object { Get-CellText -Row $_ -Column $han
 
   $rows = @($group.Group)
   $issues = New-Object 'System.Collections.Generic.List[object]'
+  $sourceKey = $handle.ToLowerInvariant()
+  $sourceHasHandle = $sourceHandles.Contains($handle)
   $imageRows = @($rows | Where-Object { Get-CellText -Row $_ -Column $imageUrlColumn })
   $positionValues = New-Object 'System.Collections.Generic.List[int]'
   $positionRecords = New-Object 'System.Collections.Generic.List[object]'
@@ -266,6 +358,27 @@ foreach ($group in ($csv.Rows | Group-Object { Get-CellText -Row $_ -Column $han
     }
   }
 
+  $galleryOrder = @($positionRecords | Sort-Object position | ForEach-Object { $_.url })
+  $sourceGalleryOrder = @()
+  if ($sourceHasHandle -and $sourceGalleryOrders.ContainsKey($sourceKey)) {
+    $sourceGalleryOrder = @($sourceGalleryOrders[$sourceKey])
+    if ($positionRecords.Count -eq $imageRows.Count) {
+      $sourceGallerySet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+      foreach ($sourceGalleryImage in $sourceGalleryOrder) {
+        [void]$sourceGallerySet.Add($sourceGalleryImage)
+      }
+      $finalGallerySet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+      foreach ($galleryImage in $galleryOrder) {
+        [void]$finalGallerySet.Add($galleryImage)
+      }
+      $unexpectedGalleryImages = @($galleryOrder | Where-Object { -not $sourceGallerySet.Contains($_) })
+      $expectedGalleryOrder = @($sourceGalleryOrder | Where-Object { $finalGallerySet.Contains($_) })
+      if ($unexpectedGalleryImages.Count -gt 0 -or -not (Test-SequenceEqualOrdinal -Left $galleryOrder -Right $expectedGalleryOrder)) {
+        $issues.Add((New-ValidationIssue -Code "gallery_order_changed" -Message "Product '$handle' gallery must preserve the source CSV Image Position order after any approved image filtering." -Details @{ actual = @($galleryOrder); expected = @($expectedGalleryOrder); unexpected = @($unexpectedGalleryImages) }))
+      }
+    }
+  }
+
   $galleryUrls = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
   foreach ($imageRow in $imageRows) {
     [void]$galleryUrls.Add((Get-CellText -Row $imageRow -Column $imageUrlColumn))
@@ -290,11 +403,9 @@ foreach ($group in ($csv.Rows | Group-Object { Get-CellText -Row $_ -Column $han
   $sourceColorOrder = @()
   $featuredImage = ""
   $firstColorVariantImage = ""
-  $sourceKey = $handle.ToLowerInvariant()
-  $sourceHasHandle = $sourceHandles.Contains($handle)
   $sourceHasColor = $sourceColorOrders.ContainsKey($sourceKey)
   if (-not $sourceHasHandle) {
-    $issues.Add((New-ValidationIssue -Code "handle_missing_from_source" -Message "Product '$handle' is absent from the source CSV, so handle and Color-order preservation cannot be verified."))
+    $issues.Add((New-ValidationIssue -Code "handle_missing_from_source" -Message "Product '$handle' is absent from the source CSV, so gallery and Color/SKC order preservation cannot be verified."))
   } elseif ($null -eq $colorColumns -and $sourceHasColor) {
     $issues.Add((New-ValidationIssue -Code "color_option_missing_from_final" -Message "Product '$handle' has a Color option in the source CSV but the final CSV no longer identifies one."))
   } elseif ($null -ne $colorColumns -and -not $sourceHasColor) {
@@ -325,7 +436,7 @@ foreach ($group in ($csv.Rows | Group-Object { Get-CellText -Row $_ -Column $han
       $sourceColorOrder = @($sourceColors | Where-Object { $colorOrder -contains $_ })
       $unexpectedColors = @($colorOrder | Where-Object { $sourceColors -notcontains $_ })
       if ($unexpectedColors.Count -gt 0 -or -not (Test-SequenceEqual -Left $colorOrder -Right $sourceColorOrder)) {
-        $issues.Add((New-ValidationIssue -Code "color_order_changed" -Message "Product '$handle' Color option order changed from the source CSV; SKC thumbnails would display in a different order." -Details @{ actual = @($colorOrder); expected = @($sourceColorOrder); unexpected = @($unexpectedColors) }))
+        $issues.Add((New-ValidationIssue -Code "color_order_changed" -Message "Product '$handle' Color option order must match the order of its Variant Images in the source Image Position gallery; SKC thumbnails would otherwise differ from the main site." -Details @{ actual = @($colorOrder); expected = @($sourceColorOrder); unexpected = @($unexpectedColors) }))
       }
     }
 
@@ -354,11 +465,21 @@ foreach ($group in ($csv.Rows | Group-Object { Get-CellText -Row $_ -Column $han
       }
     }
 
+    if ($sourceHasColor -and $sourceColorImageMaps.ContainsKey($sourceKey)) {
+      $sourceColorImageMap = $sourceColorImageMaps[$sourceKey]
+      foreach ($color in $colorOrder) {
+        if ($sourceColorImageMap.Contains($color) -and $colorImageMap.Contains($color)) {
+          $expectedVariantImage = [string]$sourceColorImageMap[$color]
+          $actualVariantImage = [string]$colorImageMap[$color]
+          if (-not [string]::Equals($actualVariantImage, $expectedVariantImage, [System.StringComparison]::Ordinal)) {
+            $issues.Add((New-ValidationIssue -Code "variant_image_binding_changed" -Message "Product '$handle' color '$color' Variant Image changed from the source CSV." -Details @{ color = $color; actual = $actualVariantImage; expected = $expectedVariantImage }))
+          }
+        }
+      }
+    }
+
     if ($colorOrder.Count -gt 0 -and $colorImageMap.Contains($colorOrder[0])) {
       $firstColorVariantImage = [string]$colorImageMap[$colorOrder[0]]
-      if ($featuredImage -and -not [string]::Equals($featuredImage, $firstColorVariantImage, [System.StringComparison]::Ordinal)) {
-        $issues.Add((New-ValidationIssue -Code "featured_image_not_first_color" -Message "Product '$handle' Image Position 1 must equal the first Color option's Variant Image so collection and product-page opening images stay aligned." -Details @{ firstColor = $colorOrder[0]; featuredImage = $featuredImage; firstColorVariantImage = $firstColorVariantImage }))
-      }
     }
   }
 
@@ -368,6 +489,8 @@ foreach ($group in ($csv.Rows | Group-Object { Get-CellText -Row $_ -Column $han
     imageCount = $imageRows.Count
     imagePositions = @($positionValues.ToArray() | Sort-Object)
     featuredImage = $featuredImage
+    galleryOrder = @($galleryOrder)
+    sourceGalleryOrder = @($sourceGalleryOrder)
     colorOrder = @($colorOrder)
     sourceColorOrder = @($sourceColorOrder)
     firstColorVariantImage = $firstColorVariantImage

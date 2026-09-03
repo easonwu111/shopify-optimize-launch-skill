@@ -53,7 +53,7 @@ function Invoke-ValidationCase {
     throw "Case '$Name' should fail but report.passed is true."
   }
   if ($ExpectedIssueCode) {
-    $codes = @($report.products | ForEach-Object { $_.issues } | ForEach-Object { $_.code })
+    $codes = @($report.fileIssues | ForEach-Object { $_.code }) + @($report.products | ForEach-Object { $_.issues } | ForEach-Object { $_.code })
     if ($codes -notcontains $ExpectedIssueCode) {
       throw "Case '$Name' did not report expected issue '$ExpectedIssueCode'. Actual: $($codes -join ', ')"
     }
@@ -140,6 +140,43 @@ try {
     "sample-product,,,Blue,,S,SAMPLE-BLUE-S,https://example.com/detail.jpg,2,https://example.com/blue.jpg"
   )
 
+  $changedBindingPath = Join-Path $testRoot "changed-binding.csv"
+  Write-Utf8Csv -Path $changedBindingPath -Lines @(
+    $header,
+    "sample-product,Sample Product,Color,Black,Size,S,SAMPLE-BLACK-S,https://example.com/black.jpg,1,https://example.com/blue.jpg",
+    "sample-product,,,Black,,M,SAMPLE-BLACK-M,,,https://example.com/blue.jpg",
+    "sample-product,,,Blue,,S,SAMPLE-BLUE-S,https://example.com/blue.jpg,2,https://example.com/blue.jpg",
+    "sample-product,,,Blue,,M,SAMPLE-BLUE-M,https://example.com/detail.jpg,3,https://example.com/blue.jpg"
+  )
+
+  $filteredGalleryValidPath = Join-Path $testRoot "filtered-gallery-valid.csv"
+  Write-Utf8Csv -Path $filteredGalleryValidPath -Lines @(
+    $header,
+    "sample-product,Sample Product,Color,Black,Size,S,SAMPLE-BLACK-S,https://example.com/black.jpg,1,https://example.com/black.jpg",
+    "sample-product,,,Black,,M,SAMPLE-BLACK-M,,,https://example.com/black.jpg",
+    "sample-product,,,Blue,,S,SAMPLE-BLUE-S,https://example.com/blue.jpg,2,https://example.com/blue.jpg",
+    "sample-product,,,Blue,,M,SAMPLE-BLUE-M,,,https://example.com/blue.jpg"
+  )
+
+  $gappedSourcePath = Join-Path $testRoot "gapped-source.csv"
+  Write-Utf8Csv -Path $gappedSourcePath -Lines @(
+    $header,
+    "gapped-product,Gapped Product,Color,Black,Size,S,GAPPED-BLACK-S,https://example.com/black.jpg,2,https://example.com/black.jpg",
+    "gapped-product,,,Blue,,S,GAPPED-BLUE-S,https://example.com/blue.jpg,4,https://example.com/blue.jpg"
+  )
+  $gappedNormalizedFinalPath = Join-Path $testRoot "gapped-normalized-final.csv"
+  Write-Utf8Csv -Path $gappedNormalizedFinalPath -Lines @(
+    $header,
+    "gapped-product,Gapped Product,Color,Black,Size,S,GAPPED-BLACK-S,https://example.com/black.jpg,1,https://example.com/black.jpg",
+    "gapped-product,,,Blue,,S,GAPPED-BLUE-S,https://example.com/blue.jpg,2,https://example.com/blue.jpg"
+  )
+  $duplicateSourcePositionPath = Join-Path $testRoot "duplicate-source-position.csv"
+  Write-Utf8Csv -Path $duplicateSourcePositionPath -Lines @(
+    $header,
+    "duplicate-product,Duplicate Product,Color,Black,Size,S,DUPLICATE-BLACK-S,https://example.com/black.jpg,2,https://example.com/black.jpg",
+    "duplicate-product,,,Blue,,S,DUPLICATE-BLUE-S,https://example.com/blue.jpg,2,https://example.com/blue.jpg"
+  )
+
   $nonContiguousColorPath = Join-Path $testRoot "non-contiguous-color.csv"
   Write-Utf8Csv -Path $nonContiguousColorPath -Lines @(
     $header,
@@ -221,15 +258,54 @@ try {
     "default-product,Default Product,Title,Default Title,DEFAULT-SKU,https://example.com/default.jpg,1,https://example.com/missing.jpg"
   )
 
+  # Main-site exports can place product-wide Image Src values on unrelated variant rows.
+  # The source of truth is Image Position for the gallery and Variant Image for color binding.
+  $mainSiteSourcePath = Join-Path $testRoot "main-site-source.csv"
+  Write-Utf8Csv -Path $mainSiteSourcePath -Lines @(
+    $header,
+    "main-site-product,Main Site Product,Color,Black,Size,S,BLACK-S,https://example.com/red.jpg,1,https://example.com/black.jpg",
+    "main-site-product,,,Black,,M,BLACK-M,https://example.com/red-detail.jpg,2,https://example.com/black.jpg",
+    "main-site-product,,,Gray,,S,GRAY-S,https://example.com/red-back.jpg,3,https://example.com/gray.jpg",
+    "main-site-product,,,Red,,S,RED-S,https://example.com/black.jpg,4,https://example.com/red.jpg",
+    "main-site-product,,,Blue,,S,BLUE-S,https://example.com/gray.jpg,5,https://example.com/blue.jpg",
+    "main-site-product,,,Blue,,M,BLUE-M,https://example.com/blue.jpg,6,https://example.com/blue.jpg"
+  )
+
+  $mainSiteValidPath = Join-Path $testRoot "main-site-valid.csv"
+  Write-Utf8Csv -Path $mainSiteValidPath -Lines @(
+    $header,
+    "main-site-product,Main Site Product,Color,Red,Size,S,RED-S,https://example.com/red.jpg,1,https://example.com/red.jpg",
+    "main-site-product,,,Black,,S,BLACK-S,https://example.com/red-detail.jpg,2,https://example.com/black.jpg",
+    "main-site-product,,,Black,,M,BLACK-M,https://example.com/red-back.jpg,3,https://example.com/black.jpg",
+    "main-site-product,,,Gray,,S,GRAY-S,https://example.com/black.jpg,4,https://example.com/gray.jpg",
+    "main-site-product,,,Blue,,S,BLUE-S,https://example.com/gray.jpg,5,https://example.com/blue.jpg",
+    "main-site-product,,,Blue,,M,BLUE-M,https://example.com/blue.jpg,6,https://example.com/blue.jpg"
+  )
+
+  $mainSiteGalleryReorderedPath = Join-Path $testRoot "main-site-gallery-reordered.csv"
+  Write-Utf8Csv -Path $mainSiteGalleryReorderedPath -Lines @(
+    $header,
+    "main-site-product,Main Site Product,Color,Red,Size,S,RED-S,https://example.com/black.jpg,1,https://example.com/red.jpg",
+    "main-site-product,,,Black,,S,BLACK-S,https://example.com/red-detail.jpg,2,https://example.com/black.jpg",
+    "main-site-product,,,Black,,M,BLACK-M,https://example.com/red-back.jpg,3,https://example.com/black.jpg",
+    "main-site-product,,,Gray,,S,GRAY-S,https://example.com/red.jpg,4,https://example.com/gray.jpg",
+    "main-site-product,,,Blue,,S,BLUE-S,https://example.com/gray.jpg,5,https://example.com/blue.jpg",
+    "main-site-product,,,Blue,,M,BLUE-M,https://example.com/blue.jpg,6,https://example.com/blue.jpg"
+  )
+
   $results = @(
     Invoke-ValidationCase -Name "valid" -CsvPath $validPath -SourceCsvPath $sourcePath -ExpectedExitCode 0
     Invoke-ValidationCase -Name "missing-position-one" -CsvPath $missingPositionOnePath -SourceCsvPath $sourcePath -ExpectedExitCode 1 -ExpectedIssueCode "image_positions_not_contiguous"
-    Invoke-ValidationCase -Name "featured-mismatch" -CsvPath $featuredMismatchPath -SourceCsvPath $sourcePath -ExpectedExitCode 1 -ExpectedIssueCode "featured_image_not_first_color"
+    Invoke-ValidationCase -Name "featured-mismatch" -CsvPath $featuredMismatchPath -SourceCsvPath $sourcePath -ExpectedExitCode 1 -ExpectedIssueCode "gallery_order_changed"
     Invoke-ValidationCase -Name "color-order-mismatch" -CsvPath $colorOrderMismatchPath -SourceCsvPath $sourcePath -ExpectedExitCode 1 -ExpectedIssueCode "color_order_changed"
     Invoke-ValidationCase -Name "inconsistent-binding" -CsvPath $inconsistentBindingPath -SourceCsvPath $sourcePath -ExpectedExitCode 1 -ExpectedIssueCode "color_has_multiple_variant_images"
     Invoke-ValidationCase -Name "blank-image-position" -CsvPath $blankImagePositionPath -SourceCsvPath $sourcePath -ExpectedExitCode 1 -ExpectedIssueCode "invalid_image_position"
     Invoke-ValidationCase -Name "blank-variant-image" -CsvPath $blankVariantImagePath -SourceCsvPath $sourcePath -ExpectedExitCode 1 -ExpectedIssueCode "color_has_blank_variant_images"
     Invoke-ValidationCase -Name "missing-gallery-binding" -CsvPath $missingGalleryBindingPath -SourceCsvPath $sourcePath -ExpectedExitCode 1 -ExpectedIssueCode "variant_image_missing_from_gallery"
+    Invoke-ValidationCase -Name "variant-image-binding-changed" -CsvPath $changedBindingPath -SourceCsvPath $sourcePath -ExpectedExitCode 1 -ExpectedIssueCode "variant_image_binding_changed"
+    Invoke-ValidationCase -Name "filtered-gallery-relative-order-valid" -CsvPath $filteredGalleryValidPath -SourceCsvPath $sourcePath -ExpectedExitCode 0
+    Invoke-ValidationCase -Name "gapped-source-normalized-final-valid" -CsvPath $gappedNormalizedFinalPath -SourceCsvPath $gappedSourcePath -ExpectedExitCode 0
+    Invoke-ValidationCase -Name "duplicate-source-position" -CsvPath $gappedNormalizedFinalPath -SourceCsvPath $duplicateSourcePositionPath -ExpectedExitCode 1 -ExpectedIssueCode "source_duplicate_image_position"
     Invoke-ValidationCase -Name "non-contiguous-color" -CsvPath $nonContiguousColorPath -SourceCsvPath $sourcePath -ExpectedExitCode 1 -ExpectedIssueCode "color_rows_not_contiguous"
     Invoke-ValidationCase -Name "chinese-color-order-mismatch" -CsvPath $chineseColorOrderMismatchPath -SourceCsvPath $chineseSourcePath -ExpectedExitCode 1 -ExpectedIssueCode "color_order_changed"
     Invoke-ValidationCase -Name "missing-final-color-option" -CsvPath $missingFinalColorOptionPath -SourceCsvPath $sourcePath -ExpectedExitCode 1 -ExpectedIssueCode "color_option_missing_from_final"
@@ -239,6 +315,9 @@ try {
     Invoke-ValidationCase -Name "case-sensitive-url-mismatch" -CsvPath $caseSensitiveUrlMismatchPath -SourceCsvPath $sourcePath -ExpectedExitCode 1 -ExpectedIssueCode "color_has_multiple_variant_images"
     Invoke-ValidationCase -Name "oversized-image-position" -CsvPath $oversizedImagePositionPath -SourceCsvPath $sourcePath -ExpectedExitCode 1 -ExpectedIssueCode "invalid_image_position"
     Invoke-ValidationCase -Name "no-color-missing-gallery" -CsvPath $noColorMissingGalleryPath -SourceCsvPath $noColorSourcePath -ExpectedExitCode 1 -ExpectedIssueCode "variant_image_missing_from_gallery"
+    Invoke-ValidationCase -Name "main-site-gallery-and-color-order-valid" -CsvPath $mainSiteValidPath -SourceCsvPath $mainSiteSourcePath -ExpectedExitCode 0
+    Invoke-ValidationCase -Name "main-site-source-row-order-is-not-color-order" -CsvPath $mainSiteSourcePath -SourceCsvPath $mainSiteSourcePath -ExpectedExitCode 1 -ExpectedIssueCode "color_order_changed"
+    Invoke-ValidationCase -Name "main-site-gallery-reordered" -CsvPath $mainSiteGalleryReorderedPath -SourceCsvPath $mainSiteSourcePath -ExpectedExitCode 1 -ExpectedIssueCode "gallery_order_changed"
   )
 
   $results | Format-Table -AutoSize

@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-09-03T03:30:49Z",
+  "verificationMethod": "Read-only Shopify Admin GraphQL collection rule and product category snapshot",
+  "stores": {
+    "regularmess-un1uhgsk.myshopify.com": {
+      "vendor": "Regular Mess",
+      "series": {
+        "Sarcasm & Attitude": "series-sarcasm-attitude",
+        "Introvert & Overthinking": "series-introvert-overthinking",
+        "Adulting & Aging": "series-adulting-aging"
+      },
+      "productTypes": {
+        "T-Shirts": "服饰与配饰 > 服装 > 服装上衣 > T 恤",
+        "Tank Tops": "服饰与配饰 > 服装 > 服装上衣 > 无袖衫",
+        "Sweatshirts": "服饰与配饰 > 服装 > 服装上衣 > 卫衣",
+        "Hoodies": "服饰与配饰 > 服装 > 服装上衣 > 连帽衫"
+      }
+    },
+    "letfaithlead-kxmefpyd.myshopify.com": {
+      "vendor": "Let Faith Lead",
+      "series": {
+        "Jesus & the Cross": "series-jesus-cross",
+        "Bible Verses & Scripture": "series-bible-verses-scripture",
+        "Armor of God": "series-armor-of-god",
+        "Christian Humor": "series-christian-humor"
+      },
+      "productTypes": {
+        "T-Shirts": "服饰与配饰 > 服装 > 服装上衣 > T 恤",
+        "Tank Tops": "服饰与配饰 > 服装 > 服装上衣 > 无袖衫",
+        "Sweatshirts": "服饰与配饰 > 服装 > 服装上衣 > 卫衣",
+        "Hoodies": "服饰与配饰 > 服装 > 服装上衣 > 连帽衫"
+      }
+    }
+  }
+}
