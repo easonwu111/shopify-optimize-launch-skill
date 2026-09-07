@@ -82,7 +82,8 @@ All products:
 
 ## Image rules
 
-- Keep only images that actually belong to the product; drop generic images shared across products (verify with OCR or visual inspection when wording is ambiguous).
+- Keep product back-view images, including plain backs without a print. A back-view image must not be excluded merely because it has no artwork or is shared across multiple products. Preserve its source-gallery position relative to the other retained images.
+- Keep images that accurately represent the product. Cross-product reuse alone is not evidence that an image is irrelevant; exclude an unrelated image only after content-level verification, and record its URL and reason in the verification report. When uncertain, retain it and flag it for review.
 - Treat `Image Src` and `Image Position` as product-wide gallery fields. The variant row containing an `Image Src` value does not bind that image to the row's color; only `Variant Image` creates the color/variant binding.
 - For each product, collect every nonblank `Image Src` and sort by numeric `Image Position`. This is the source site's product-gallery order. Do not associate an `Image Src` with the Color on the same physical CSV row; those fields are independent.
 - Build the Color-to-image mapping only from `Variant Image`. Derive the source-site Color/SKC order by locating each Color's distinct `Variant Image` in the ordered source gallery. Keep all variants for each color in one contiguous block and arrange those blocks in that derived order, because the storefront SKC thumbnails follow Shopify's Color option-value order.
@@ -90,7 +91,8 @@ All products:
 - For repair of an existing Shopify product after approved color filtering, renaming, or substitution, sort retained live Color values by the source-gallery position of each live Color's bound variant image. Live Color labels and SKU sets may differ from the unfiltered source, but every retained live color must resolve to one distinct, content-verified source-gallery image; otherwise skip that product's Color/SKC reorder.
 - Source `Image Position` values may contain gaps or start above `1`; their numeric ascending order is still authoritative. Stop for manual review when source positions are invalid or duplicated; a Color has blank or multiple `Variant Image` values; a `Variant Image` is absent from the product gallery; or multiple Colors share one `Variant Image`. Do not fall back to physical CSV row order. Normalize final Shopify/import positions to continuous `1..N`.
 - Bind every size of one color to the same nonblank `Variant Image`. Every `Variant Image` URL must also appear in the product's `Image Src` set.
-- After filtering colors or images, remove media used only by a removed color unless the user explicitly approved keeping it as gallery content.
+- After approved color filtering, remove media used exclusively by a removed color unless the user explicitly approved keeping it as gallery content. Do not infer exclusive color ownership from the physical CSV row or from a shared image URL. Back views representing retained colors must remain.
+- Before delivery, reconcile source back-view images against the final Image Src set, including back views without a Variant Image binding. Record retained back views and any exclusions with their reasons; an image-order validator PASS alone does not prove back-view completeness.
 - After filtering, preserve the relative order of every retained image from the source site's ordered gallery, then renumber `Image Position` exactly `1..N` with no blanks, gaps, or duplicates.
 - Keep the first retained source-gallery image at position `1`. Never move a Color's `Variant Image` to position `1` merely because that Color appears first in the CSV's variant rows.
 - Run `scripts/validate-image-order.ps1` against every final store CSV. Do not deliver a file when the validator exits nonzero.

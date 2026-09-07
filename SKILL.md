@@ -134,6 +134,7 @@ Re-import each generated CSV with the artifact tool and verify all of the follow
 - product and variant counts reconcile to the source;
 - every variant SKU is nonblank and globally unique across both store files;
 - every product has exactly one image at position `1`, and positions are unique and continuous `1..N`;
+- source back-view images representing retained colors remain in `Image Src`, including plain backs and images shared across products; reconcile these explicitly under the catalog image rules, since the image-order gate alone does not detect omitted back views;
 - after any approved image filtering, the remaining `Image Src` values preserve their relative order from the source site's `Image Position` sequence and are renumbered continuously `1..N`;
 - position `1` equals the first retained image from the source-site gallery; do not replace it merely to match the first physical Color row in the CSV;
 - every color's variants are contiguous, follow the Color/SKC order derived from their `Variant Image` positions in the source gallery, and use exactly one nonblank `Variant Image` across all sizes;
